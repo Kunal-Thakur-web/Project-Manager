@@ -29,7 +29,7 @@ const registerUser = asyncHandler(async (req,res) => {
     });
 
     if(existingUser) {
-        throw new ApiError(409, "Email with username or email already exists", []);
+        throw new ApiError(409, "User with username or email already exists", []);
     }
     const user = await User.create({
         email,
@@ -96,7 +96,7 @@ const login = asyncHandler(async (req,res) => {
 
     user.refreshToken = refreshToken;
 
-    user.save({validateBeforeSave:false});
+    await user.save({validateBeforeSave:false});
 
     const loggedInUser = await User.findById(user._id).select(
         "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
@@ -279,10 +279,10 @@ const refreshAccessToken = asyncHandler(async (req,res) => {
         }
 
 
-        const {accessToken,newRefreshToken} = await generateAccessAndRefreshTokens(user._id);
+        const {accessToken,refreshToken: newRefreshToken} = await generateAccessAndRefreshTokens(user._id);
 
         user.refreshToken = newRefreshToken;
-        user.save({validateBeforeSave: false});
+        await user.save({validateBeforeSave: false});
 
         return res
             .status(200)
@@ -291,7 +291,7 @@ const refreshAccessToken = asyncHandler(async (req,res) => {
             .json(
                 new APIResponse(
                     200,
-                    {"Access Token": accessToken, "Refresh Token": newRefreshToken},
+                    { accessToken, refreshToken: newRefreshToken },
                     "Access token refreshed"
                 )
             )
@@ -355,7 +355,7 @@ const resetForgotPassword = asyncHandler(async (req,res) => {
     });
 
     if(!user) {
-        throw new ApiError(489,"Token is invalid or expired");
+        throw new ApiError(400,"Token is invalid or expired");
     }
 
     user.forgotPassExpiry = undefined;

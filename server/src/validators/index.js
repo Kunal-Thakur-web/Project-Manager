@@ -17,7 +17,7 @@ const userRegisterValidator = () => {
             .withMessage("Username can not be empty")
             .isLength({min:3})
             .withMessage("Username must be atleast three characters long"),
-        body(".password")
+        body("password")
             .trim()
             .notEmpty()
             .withMessage("Password is required"),
@@ -103,6 +103,18 @@ const addMemberToProjectValidator = () => {
     ]
 }
 
+const createTaskValidator = () => {
+    return [
+        body("title")
+            .trim()
+            .notEmpty()
+            .withMessage("Task title can not be empty"),
+        body("description").trim().optional(),
+        body("assignedTo").trim().optional(),
+        body("status").trim().optional()
+    ]
+}
+
 
 
 export {
@@ -112,5 +124,6 @@ export {
     forgotPassValidator,
     resetForgotPassValidator,
     createProjectValidator,
-    addMemberToProjectValidator
+    addMemberToProjectValidator,
+    createTaskValidator
 };

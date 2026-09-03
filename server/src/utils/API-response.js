@@ -9,4 +9,4 @@ class APIResponse{
 
 export default APIResponse;
 
-//This defines a format for our responses that we will send 
+//This defines a format for our responses that we will send

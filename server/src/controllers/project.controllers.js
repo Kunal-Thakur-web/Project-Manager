@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { User } from "../models/user.models.js";
 import { Project } from "../models/project.models.js";
 import { ProjectMember } from "../models/projectMember.models.js";
@@ -22,7 +23,7 @@ const getProjects = asyncHandler(async (req,res) => {
                 from: "projects",
                 localField: "project",
                 foreignField: "_id",
-                as: "projects",
+                as: "project",
                 pipeline: [
                     {
                         $lookup: {
@@ -33,9 +34,45 @@ const getProjects = asyncHandler(async (req,res) => {
                         }
                     },
                     {
+                        $lookup: {
+                            from: "users",
+                            localField: "projectMembers.user",
+                            foreignField: "_id",
+                            as: "memberUsers",
+                            pipeline: [
+                                { $project: { _id: 1, username: 1, fullName: 1, avatar: 1 } }
+                            ]
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: "tasks",
+                            localField: "_id",
+                            foreignField: "project",
+                            as: "tasks"
+                        }
+                    },
+                    {
                         $addFields: {
-                            members: {
-                                $size: "$projectMembers"
+                            members: { $size: "$projectMembers" },
+                            memberAvatars: "$memberUsers",
+                            taskStats: {
+                                total: { $size: "$tasks" },
+                                todo: {
+                                    $size: {
+                                        $filter: { input: "$tasks", cond: { $eq: ["$$this.status", "todo"] } }
+                                    }
+                                },
+                                inProgress: {
+                                    $size: {
+                                        $filter: { input: "$tasks", cond: { $eq: ["$$this.status", "in_progress"] } }
+                                    }
+                                },
+                                done: {
+                                    $size: {
+                                        $filter: { input: "$tasks", cond: { $eq: ["$$this.status", "done"] } }
+                                    }
+                                }
                             }
                         }
                     }
@@ -43,7 +80,7 @@ const getProjects = asyncHandler(async (req,res) => {
             }
         },
         {
-            $unwind: "$projects"
+            $unwind: "$project"
 
         },
         {
@@ -53,6 +90,8 @@ const getProjects = asyncHandler(async (req,res) => {
                     name: 1,
                     description: 1,
                     members: 1,
+                    memberAvatars: 1,
+                    taskStats: 1,
                     createdAt: 1,
                     createdBy: 1
                 },
@@ -94,9 +133,39 @@ const getProjectByID = asyncHandler(async (req,res) => {
             }
         },
         {
+            $lookup: {
+                from: "users",
+                localField: "projectMembers.user",
+                foreignField: "_id",
+                as: "memberUsers",
+                pipeline: [
+                    { $project: { _id: 1, username: 1, fullName: 1, avatar: 1 } }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "tasks",
+                localField: "_id",
+                foreignField: "project",
+                as: "tasks"
+            }
+        },
+        {
             $addFields: {
-                members: {
-                    $size: "$projectMembers"
+                members: { $size: "$projectMembers" },
+                memberAvatars: "$memberUsers",
+                taskStats: {
+                    total: { $size: "$tasks" },
+                    todo: {
+                        $size: { $filter: { input: "$tasks", cond: { $eq: ["$$this.status", "todo"] } } }
+                    },
+                    inProgress: {
+                        $size: { $filter: { input: "$tasks", cond: { $eq: ["$$this.status", "in_progress"] } } }
+                    },
+                    done: {
+                        $size: { $filter: { input: "$tasks", cond: { $eq: ["$$this.status", "done"] } } }
+                    }
                 }
             }
         },
@@ -107,12 +176,14 @@ const getProjectByID = asyncHandler(async (req,res) => {
                 description: 1,
                 createdAt: 1,
                 createdBy: 1,
-                members: 1
+                members: 1,
+                memberAvatars: 1,
+                taskStats: 1
             }
         }
     ]);
 
-    if(!project) {
+    if(!project || project.length === 0) {
         throw new ApiError(404,"Project not found");
     }
 
@@ -121,7 +192,7 @@ const getProjectByID = asyncHandler(async (req,res) => {
         .json(
             new APIResponse(
                 200,
-                project,
+                project[0],
                 "Project found successfully"
             )
         );
@@ -133,7 +204,7 @@ const createProject = asyncHandler(async (req,res) => {
     const project = await Project.create({
         name,
         description,
-        createdBy: new mongoose.Types.ObjectId(    req.user._id)
+        createdBy: new mongoose.Types.ObjectId(req.user._id)
     });
 
     await ProjectMember.create({
@@ -239,7 +310,7 @@ const getProjectMembers = asyncHandler(async (req,res) => {
         },
         {
             $addFields: {
-                users: {
+                user: {
                     $arrayElemAt: ["$user",0]
                 }
             }

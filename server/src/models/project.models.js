@@ -3,13 +3,13 @@ import mongoose,{Schema} from "mongoose";
 
 const projectSchema = new Schema({
     name: {
-        type:string,
+        type:String,
         required:true,
         unique:true,
         trim:true
     },
     description: {
-        type:string
+        type:String
     },
     createdBy: {
         type: Schema.Types.ObjectId,
